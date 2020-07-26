@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 
 import os
 
+
+def env(name, default=None):
+    return os.environ.get(name, default)
+
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -20,12 +25,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '8g!=w+#h4hq(j(h*@c!+a0&m-jjt=2e+n@weg)5emy^#u8dm&w'
+SECRET_KEY = env('DJANGO_SECRET_KEY', 'not-so-secret')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DJANGO_DEBUG', '0') == '1'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -37,13 +42,21 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'graphene_django',
+    'corsheaders',
+    'django_extensions',
+
+    'backend.core',
+    'backend.contrib',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -73,29 +86,41 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
+"""
 
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('POSTGRES_DB', 'backend'),
+        'USER': env('POSTGRES_USER', 'backend'),
+        'PASSWORD': env('POSTGRES_PASSWORD', 'backend'),
+        'HOST': env('POSTGRES_HOST', 'localhost'),
+        'PORT': 5432
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',  # noqa: E501
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',  # noqa: E501
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',  # noqa: E501
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',  # noqa: E501
     },
 ]
 
@@ -118,3 +143,57 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+AUTH_USER_MODEL = 'core.User'
+
+GRAPHENE = {
+    'SCHEMA': 'backend.graphql.schema',
+    'SCHEMA_OUTPUT': '../frontend/schema.json',
+    'MIDDLEWARE': [
+        'graphql_jwt.middleware.JSONWebTokenMiddleware',
+        'graphene_django.debug.DjangoDebugMiddleware',
+    ],
+}
+
+AUTHENTICATION_BACKENDS = [
+    'graphql_jwt.backends.JSONWebTokenBackend',
+    'django.contrib.auth.backends.ModelBackend',
+    'backend.core.auth_backend.PhoneOTPBackend',
+]
+
+GRAPHQL_JWT = {
+    'JWT_VERIFY_EXPIRATION': False,
+    # uncomment below lines for enabling time-bound sessions
+    # 'JWT_EXPIRATION_DELTA': timedelta(minutes=60),
+    # 'JWT_REFRESH_EXPIRATION_DELTA': timedelta(days=7),
+}
+
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_METHODS = ['GET', 'POST']
+
+FRONTEND_CHOICES = '../frontend/src/CHOICES.js'
+
+FRONTEND_PREFIX = env('FRONTEND_PREFIX', 'http://localhost:3000')
+
+AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', "minioadmin")
+AWS_BUCKET_NAME = env('AWS_BUCKET_NAME', 'backend-local')
+AWS_BUCKET_REGION = env('AWS_BUCKET_REGION', 'ap-south-1')
+AWS_EXPIRY = 604700
+AWS_S3_ENDPOINT_URL = env('AWS_S3_ENDPOINT_URL')
+AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', "minioadmin")
+
+
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", "amqp://guest:guest@127.0.0.1:5672//")  # noqa: E501
+
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_PORT = env('EMAIL_PORT')
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+EMAIL_USE_SSL = env('EMAIL_USE_SSL') == '1'
+
+if USE_TZ:
+    CELERY_TIMEZONE = TIME_ZONE
+REDIS_URL = env("REDIS_URL", "redis://")
+
+SIO_SERVER_PORT = int(env('SIO_SERVER_PORT', '8888'))
